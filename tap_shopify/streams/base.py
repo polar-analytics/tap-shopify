@@ -51,16 +51,23 @@ def retry_after_wait_gen(**kwargs):
     yield math.floor(float(sleep_time_str))
 
 def shopify_error_handling(fnc):
+    # by default, program should re-raise exceptions on giveup,
+    # or else program ends with code 0 when it failed
+    def on_giveup_handler(details):
+        raise Exception(f"Gave up! Details: {details}")
+
     @backoff.on_exception(backoff.expo,
                           (pyactiveresource.connection.ServerError,
                            pyactiveresource.formats.Error,
                            simplejson.scanner.JSONDecodeError),
                           giveup=is_not_status_code_fn(range(500, 599)),
+                          on_giveup=on_giveup_handler,
                           on_backoff=retry_handler,
                           max_tries=MAX_RETRIES)
     @backoff.on_exception(retry_after_wait_gen,
                           pyactiveresource.connection.ClientError,
                           giveup=is_not_status_code_fn([429]),
+                          on_giveup=on_giveup_handler,
                           on_backoff=leaky_bucket_handler,
                           # No jitter as we want a constant value
                           jitter=None)
