@@ -159,6 +159,9 @@ class Stream():
             updated_at_max = updated_at_min + datetime.timedelta(days=date_window_size)
             if updated_at_max > stop_time:
                 updated_at_max = stop_time
+            
+            LOGGER.info(f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d')} to {updated_at_max.strftime('%Y-%m-%d')}")
+
             while True:
                 status_key = self.status_key or "status"
                 query_params = {
