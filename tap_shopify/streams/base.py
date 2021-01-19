@@ -81,7 +81,10 @@ def get_config_date(config_key, default):
     if d is None:
         return default
     else:
-        return datetime.datetime.strptime(d, "%Y-%m-%d")
+        d = datetime.datetime.strptime(d, "%Y-%m-%d")
+        # prevent "datetime must be pegged at UTC tzoneinfo"
+        d = d.astimezone(datetime.timezone.utc)
+        return d
 
 class Error(Exception):
     """Base exception for the API interaction module"""
