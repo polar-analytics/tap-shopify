@@ -76,6 +76,13 @@ def shopify_error_handling(fnc):
         return fnc(*args, **kwargs)
     return wrapper
 
+def get_config_date(config_key, default):
+    d = Context.config.get(config_key, None)
+    if d is None:
+        return default
+    else:
+        return datetime.datetime.strptime(d, "%Y-%m-%d")
+
 class Error(Exception):
     """Base exception for the API interaction module"""
 
@@ -130,9 +137,9 @@ class Stream():
         return self.replication_object.find(**query_params)
 
     def get_objects(self):
-        updated_at_min = self.get_bookmark()
+        updated_at_min = get_config_date("start_date", self.get_bookmark())
+        stop_time = get_config_date("end_date", singer.utils.now().replace(microsecond=0))
 
-        stop_time = singer.utils.now().replace(microsecond=0)
         date_window_size = float(Context.config.get("date_window_size", DATE_WINDOW_SIZE))
         results_per_page = Context.get_results_per_page(RESULTS_PER_PAGE)
 
