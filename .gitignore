@@ -80,6 +80,7 @@ celerybeat-schedule
 .env
 
 # virtualenv
+.venv/
 venv/
 ENV/
 
@@ -102,3 +103,5 @@ rsa-key
 tags
 singer-check-tap-data
 state.json
+
+.vscode/
