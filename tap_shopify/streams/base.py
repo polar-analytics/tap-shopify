@@ -82,8 +82,7 @@ def get_config_date(config_key, default):
         return default
     else:
         d = datetime.datetime.strptime(d, "%Y-%m-%d")
-        # prevent "datetime must be pegged at UTC tzoneinfo"
-        d = d.astimezone(datetime.timezone.utc)
+        d = d.replace(tzinfo=datetime.timezone.utc)
         return d
 
 class Error(Exception):
