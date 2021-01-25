@@ -171,8 +171,8 @@ class Stream():
                 status_key = self.status_key or "status"
                 query_params = {
                     "since_id": since_id,
-                    "updated_at_min": updated_at_min,
-                    "updated_at_max": updated_at_max,
+                    "updated_at_min": updated_at_min.strftime('%Y-%m-%dT%H:%M%z'),
+                    "updated_at_max": updated_at_max.strftime('%Y-%m-%dT%H:%M%z'),
                     "limit": results_per_page,
                     status_key: "any"
                 }
