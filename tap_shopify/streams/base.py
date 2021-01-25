@@ -84,9 +84,7 @@ def get_config_date(config_key, default):
     if d is None:
         return default
     else:
-        d = datetime.datetime.strptime(d, DATETIME_STR_FMT)
-        d = d.replace(tzinfo=datetime.timezone.utc)
-        return d
+        return datetime.datetime.strptime(d, DATETIME_STR_FMT)
 
 class Error(Exception):
     """Base exception for the API interaction module"""
@@ -165,7 +163,7 @@ class Stream():
             if updated_at_max > stop_time:
                 updated_at_max = stop_time
             
-            LOGGER.info(f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d')} to updated_at_max {updated_at_max.strftime('%Y-%m-%d')}")
+            LOGGER.info(f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d %H:%m %z')} to updated_at_max {updated_at_max.strftime('%Y-%m-%d %H:%m %z')}")
 
             while True:
                 status_key = self.status_key or "status"
@@ -196,7 +194,7 @@ class Stream():
                     # window and can move forward. Also remove the since_id because we want to
                     # restart at 1.
                     Context.state.get('bookmarks', {}).get(self.name, {}).pop('since_id', None)
-                    self.update_bookmark(utils.strftime(updated_at_max))
+                    self.update_bookmark(utils.strftime(updated_at_max.astimezone(datetime.timezone.utc)))
                     break
 
                 if objects[-1].id != max([o.id for o in objects]):
