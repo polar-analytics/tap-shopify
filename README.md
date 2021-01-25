@@ -32,14 +32,15 @@ This tap:
 
    ```json
     {
-        "start_date": "2010-01-01",
+        "start_date": "2010-01-01T00:00+0000",
         "api_key": "<Shopify API Key>",
         "shop": "test_shop"
     }
     ```
 
-   The `start_date` specifies the date at which the tap will begin pulling data
-   (for those resources that support this).
+   The `start_date` specifies the date at which the tap will begin pulling data (for those resources that support this).
+   Same for `end_date`.
+   The format is `"%Y-%m-%dT%H:%M%z"` (see [datetime str formats](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes)).
 
    The `api_key` is the API key for your Shopify shop generated via an OAuth flow.
 

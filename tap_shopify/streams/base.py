@@ -22,6 +22,9 @@ DATE_WINDOW_SIZE = 1
 # We will retry a 500 error a maximum of 5 times before giving up
 MAX_RETRIES = 5
 
+# Datetime parsing format
+DATETIME_STR_FMT = "%Y-%m-%dT%H:%M%z"
+
 def is_not_status_code_fn(status_code):
     def gen_fn(exc):
         if getattr(exc, 'code', None) and exc.code not in status_code:
@@ -81,7 +84,7 @@ def get_config_date(config_key, default):
     if d is None:
         return default
     else:
-        d = datetime.datetime.strptime(d, "%Y-%m-%d")
+        d = datetime.datetime.strptime(d, DATETIME_STR_FMT)
         d = d.replace(tzinfo=datetime.timezone.utc)
         return d
 
@@ -140,7 +143,7 @@ class Stream():
 
     def get_objects(self):
         updated_at_min = get_config_date("start_date", self.get_bookmark())
-        stop_time = get_config_date("end_date", singer.utils.now().replace(microsecond=0))
+        stop_time = get_config_date("end_date", singer.utils.now().astimezone(datetime.timezone.utc).replace(microsecond=0))
 
         date_window_size = float(Context.config.get("date_window_size", DATE_WINDOW_SIZE))
         results_per_page = Context.get_results_per_page(RESULTS_PER_PAGE)
@@ -162,7 +165,7 @@ class Stream():
             if updated_at_max > stop_time:
                 updated_at_max = stop_time
             
-            LOGGER.info(f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d')} to {updated_at_max.strftime('%Y-%m-%d')}")
+            LOGGER.info(f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d')} to updated_at_max {updated_at_max.strftime('%Y-%m-%d')}")
 
             while True:
                 status_key = self.status_key or "status"
