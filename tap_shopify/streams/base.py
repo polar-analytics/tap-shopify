@@ -25,23 +25,28 @@ MAX_RETRIES = 5
 # Datetime parsing format
 DATETIME_STR_FMT = "%Y-%m-%dT%H:%M%z"
 
+
 def is_not_status_code_fn(status_code):
     def gen_fn(exc):
-        if getattr(exc, 'code', None) and exc.code not in status_code:
+        if getattr(exc, "code", None) and exc.code not in status_code:
             return True
         # Retry other errors up to the max
         return False
+
     return gen_fn
 
+
 def leaky_bucket_handler(details):
-    LOGGER.info("Received 429 -- sleeping for %s seconds",
-                details['wait'])
+    LOGGER.info("Received 429 -- sleeping for %s seconds", details["wait"])
+
 
 def retry_handler(details):
-    LOGGER.info("Received 500 or retryable error -- Retry %s/%s",
-                details['tries'], MAX_RETRIES)
+    LOGGER.info(
+        "Received 500 or retryable error -- Retry %s/%s", details["tries"], MAX_RETRIES
+    )
 
-#pylint: disable=unused-argument
+
+# pylint: disable=unused-argument
 def retry_after_wait_gen(**kwargs):
     # This is called in an except block so we can retrieve the exception
     # and check it.
@@ -50,8 +55,9 @@ def retry_after_wait_gen(**kwargs):
     # Retry-After is an undocumented header. But honoring
     # it was proven to work in our spikes.
     # It's been observed to come through as lowercase, so fallback if not present
-    sleep_time_str = resp.headers.get('Retry-After', resp.headers.get('retry-after'))
+    sleep_time_str = resp.headers.get("Retry-After", resp.headers.get("retry-after"))
     yield math.floor(float(sleep_time_str))
+
 
 def shopify_error_handling(fnc):
     # by default, program should re-raise exceptions on giveup,
@@ -59,25 +65,33 @@ def shopify_error_handling(fnc):
     def on_giveup_handler(details):
         raise Exception(f"Gave up! Details: {details}")
 
-    @backoff.on_exception(backoff.expo,
-                          (pyactiveresource.connection.ServerError,
-                           pyactiveresource.formats.Error,
-                           simplejson.scanner.JSONDecodeError),
-                          giveup=is_not_status_code_fn(range(500, 599)),
-                          on_giveup=on_giveup_handler,
-                          on_backoff=retry_handler,
-                          max_tries=MAX_RETRIES)
-    @backoff.on_exception(retry_after_wait_gen,
-                          pyactiveresource.connection.ClientError,
-                          giveup=is_not_status_code_fn([429]),
-                          on_giveup=on_giveup_handler,
-                          on_backoff=leaky_bucket_handler,
-                          # No jitter as we want a constant value
-                          jitter=None)
+    @backoff.on_exception(
+        backoff.expo,
+        (
+            pyactiveresource.connection.ServerError,
+            pyactiveresource.formats.Error,
+            simplejson.scanner.JSONDecodeError,
+        ),
+        giveup=is_not_status_code_fn(range(500, 599)),
+        on_giveup=on_giveup_handler,
+        on_backoff=retry_handler,
+        max_tries=MAX_RETRIES,
+    )
+    @backoff.on_exception(
+        retry_after_wait_gen,
+        pyactiveresource.connection.ClientError,
+        giveup=is_not_status_code_fn([429]),
+        on_giveup=on_giveup_handler,
+        on_backoff=leaky_bucket_handler,
+        # No jitter as we want a constant value
+        jitter=None,
+    )
     @functools.wraps(fnc)
     def wrapper(*args, **kwargs):
         return fnc(*args, **kwargs)
+
     return wrapper
+
 
 def get_config_date(config_key, default):
     d = Context.config.get(config_key, None)
@@ -86,37 +100,46 @@ def get_config_date(config_key, default):
     else:
         return datetime.datetime.strptime(d, DATETIME_STR_FMT)
 
+
 class Error(Exception):
     """Base exception for the API interaction module"""
+
 
 class OutOfOrderIdsError(Error):
     """Raised if our expectation of ordering by ID is violated"""
 
-class Stream():
+
+class Stream:
     # Used for bookmarking and stream identification. Is overridden by
     # subclasses to change the bookmark key.
     name = None
-    replication_method = 'INCREMENTAL'
-    replication_key = 'updated_at'
-    key_properties = ['id']
+    replication_method = "INCREMENTAL"
+    replication_key = "updated_at"
+    key_properties = ["id"]
     # Controls which SDK object we use to call the API by default.
     replication_object = None
     # Status parameter override option
     status_key = None
 
     def get_bookmark(self):
-        bookmark = (singer.get_bookmark(Context.state,
-                                        # name is overridden by some substreams
-                                        self.name,
-                                        self.replication_key)
-                    or Context.config["start_date"])
+        bookmark = (
+            singer.get_bookmark(
+                Context.state,
+                # name is overridden by some substreams
+                self.name,
+                self.replication_key,
+            )
+            or Context.config["start_date"]
+        )
         return utils.strptime_with_tz(bookmark)
 
     def get_since_id(self):
-        return singer.get_bookmark(Context.state,
-                                   # name is overridden by some substreams
-                                   self.name,
-                                   'since_id')
+        return singer.get_bookmark(
+            Context.state,
+            # name is overridden by some substreams
+            self.name,
+            "since_id",
+        )
 
     def update_bookmark(self, bookmark_value, bookmark_key=None):
         # NOTE: Bookmarking can never be updated to not get the most
@@ -127,10 +150,9 @@ class Stream():
             # name is overridden by some substreams
             self.name,
             bookmark_key or self.replication_key,
-            bookmark_value
+            bookmark_value,
         )
         singer.write_state(Context.state)
-
 
     # This function can be overridden by subclasses for specialized API
     # interactions. If you override it you need to remember to decorate it
@@ -141,9 +163,14 @@ class Stream():
 
     def get_objects(self):
         updated_at_min = get_config_date("start_date", self.get_bookmark())
-        stop_time = get_config_date("end_date", singer.utils.now().astimezone(datetime.timezone.utc).replace(microsecond=0))
+        stop_time = get_config_date(
+            "end_date",
+            singer.utils.now().astimezone(datetime.timezone.utc).replace(microsecond=0),
+        )
 
-        date_window_size = float(Context.config.get("date_window_size", DATE_WINDOW_SIZE))
+        date_window_size = float(
+            Context.config.get("date_window_size", DATE_WINDOW_SIZE)
+        )
         results_per_page = Context.get_results_per_page(RESULTS_PER_PAGE)
 
         # Page through till the end of the resultset
@@ -162,17 +189,19 @@ class Stream():
             updated_at_max = updated_at_min + datetime.timedelta(days=date_window_size)
             if updated_at_max > stop_time:
                 updated_at_max = stop_time
-            
-            LOGGER.info(f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d %H:%m %z')} to updated_at_max {updated_at_max.strftime('%Y-%m-%d %H:%m %z')}")
+
+            LOGGER.info(
+                f"Sync from updated_at_min {updated_at_min.strftime('%Y-%m-%d %H:%m %z')} to updated_at_max {updated_at_max.strftime('%Y-%m-%d %H:%m %z')}"
+            )
 
             while True:
                 status_key = self.status_key or "status"
                 query_params = {
                     "since_id": since_id,
-                    "updated_at_min": updated_at_min.strftime('%Y-%m-%dT%H:%M%z'),
-                    "updated_at_max": updated_at_max.strftime('%Y-%m-%dT%H:%M%z'),
+                    "updated_at_min": updated_at_min.strftime("%Y-%m-%dT%H:%M%z"),
+                    "updated_at_max": updated_at_max.strftime("%Y-%m-%dT%H:%M%z"),
                     "limit": results_per_page,
-                    status_key: "any"
+                    status_key: "any",
                 }
 
                 with metrics.http_request_timer(self.name):
@@ -183,8 +212,9 @@ class Stream():
                         # This verifies the api behavior expectation we
                         # have that all results actually honor the
                         # since_id parameter.
-                        raise OutOfOrderIdsError("obj.id < since_id: {} < {}".format(
-                            obj.id, since_id))
+                        raise OutOfOrderIdsError(
+                            "obj.id < since_id: {} < {}".format(obj.id, since_id)
+                        )
                     yield obj
 
                 # You know you're at the end when the current page has
@@ -193,20 +223,27 @@ class Stream():
                     # Save the updated_at_max as our bookmark as we've synced all rows up in our
                     # window and can move forward. Also remove the since_id because we want to
                     # restart at 1.
-                    Context.state.get('bookmarks', {}).get(self.name, {}).pop('since_id', None)
-                    self.update_bookmark(utils.strftime(updated_at_max.astimezone(datetime.timezone.utc)))
+                    Context.state.get("bookmarks", {}).get(self.name, {}).pop(
+                        "since_id", None
+                    )
+                    self.update_bookmark(
+                        utils.strftime(updated_at_max.astimezone(datetime.timezone.utc))
+                    )
                     break
 
                 if objects[-1].id != max([o.id for o in objects]):
                     # This verifies the api behavior expectation we have
                     # that all pages are internally ordered by the
                     # `since_id`.
-                    raise OutOfOrderIdsError("{} is not the max id in objects ({})".format(
-                        objects[-1].id, max([o.id for o in objects])))
+                    raise OutOfOrderIdsError(
+                        "{} is not the max id in objects ({})".format(
+                            objects[-1].id, max([o.id for o in objects])
+                        )
+                    )
                 since_id = objects[-1].id
 
                 # Put since_id into the state.
-                self.update_bookmark(since_id, bookmark_key='since_id')
+                self.update_bookmark(since_id, bookmark_key="since_id")
 
             updated_at_min = updated_at_max
 
